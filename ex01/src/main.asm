@@ -1,0 +1,77 @@
+.include "constants.asm"
+.include "header.asm"
+
+.segment "ZEROPAGE"
+.segment "BSS"
+
+.segment "CODE"
+.proc irq_handler
+  RTI
+.endproc
+
+.proc reset_handler
+  SEI           ; turn on interrupts
+  CLD           ; turn off non-existant decimal mode
+  LDX #$00
+  STX PPUCTRL   ; disable NMI
+  STX PPUMASK   ; turn off display
+
+  BIT PPUSTATUS
+
+vblankwait:     ; wait for PPU to fully boot up
+  BIT PPUSTATUS
+  BPL vblankwait
+
+vblankwait2:    ; wait for one more vblank before starting main code
+  BIT PPUSTATUS
+  BPL vblankwait2
+
+  JMP main
+.endproc
+
+.proc nmi_handler
+  RTI
+.endproc
+
+.proc main
+  LDX PPUSTATUS   ; reset PPUADDR latch
+  LDX #$3f
+  STX PPUADDR
+  LDX #$00
+  STX PPUADDR     ; set PPU to write to $3f00 (palette ram)
+
+copy_palettes:    ; write 32 values from palettes to palette ram
+  LDA palettes,x
+  STA PPUDATA
+  INX
+  CPX #$20
+  BNE copy_palettes
+
+vblankwait:       ; wait for another vblank before continuing
+  BIT PPUSTATUS
+  BPL vblankwait
+
+  LDA #%00001110  ; turn on screen
+  STA PPUMASK
+
+forever:
+  JMP forever
+.endproc
+
+.segment "RODATA"
+palettes:
+.byte $21, $00, $10, $30
+.byte $21, $01, $0f, $31
+.byte $21, $06, $16, $26
+.byte $21, $09, $19, $29
+
+.byte $21, $00, $10, $30
+.byte $21, $01, $0f, $31
+.byte $21, $06, $16, $26
+.byte $21, $09, $19, $29
+
+.segment "VECTORS"
+.addr nmi_handler, reset_handler, irq_handler
+
+.segment "CHR"
+.incbin "blank.chr"
