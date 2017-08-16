@@ -11,20 +11,14 @@
 
 .proc reset_handler
   SEI           ; turn on interrupts
-  CLD           ; turn off non-existant decimal mode
+  CLD           ; turn off non-existent decimal mode
   LDX #$00
   STX PPUCTRL   ; disable NMI
   STX PPUMASK   ; turn off display
 
-  BIT PPUSTATUS
-
 vblankwait:     ; wait for PPU to fully boot up
   BIT PPUSTATUS
   BPL vblankwait
-
-vblankwait2:    ; wait for one more vblank before starting main code
-  BIT PPUSTATUS
-  BPL vblankwait2
 
   JMP main
 .endproc
@@ -40,12 +34,12 @@ vblankwait2:    ; wait for one more vblank before starting main code
   LDX #$00
   STX PPUADDR     ; set PPU to write to $3f00 (palette ram)
 
-copy_palettes:    ; write 32 values from palettes to palette ram
-  LDA palettes,x
+copy_palettes:
+  LDA palettes,x  ; use indexed addressing into palette storage
   STA PPUDATA
   INX
-  CPX #$20
-  BNE copy_palettes
+  CPX #$20          ; have we copied 32 values?
+  BNE copy_palettes ; if no, repeat
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
@@ -55,7 +49,7 @@ vblankwait:       ; wait for another vblank before continuing
   STA PPUMASK
 
 forever:
-  JMP forever
+  JMP forever     ; do nothing, forever
 .endproc
 
 .segment "RODATA"
