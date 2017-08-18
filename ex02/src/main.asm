@@ -24,6 +24,10 @@ vblankwait:     ; wait for PPU to fully boot up
 .endproc
 
 .proc nmi_handler
+  LDA #$00
+  STA OAMADDR
+  LDA #$02
+  STA OAMDMA
   RTI
 .endproc
 
@@ -41,10 +45,20 @@ copy_palettes:
   CPX #$20          ; have we copied 32 values?
   BNE copy_palettes ; if no, repeat
 
+  LDX #$00            ; set X register back to zero
+set_up_sprites:
+  LDA sprites,x       ; load next byte of sprite data
+  STA $0200,x         ; copy to $0200 + x
+  INX
+  CPX #$10            ; have we copied 16 values?
+  BNE set_up_sprites  ; if no, repeat
+
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
 
+  LDA #%10010000  ; turn on NMIs, sprites use first pattern table
+  STA PPUCTRL
   LDA #%00011110  ; turn on screen
   STA PPUMASK
 
@@ -64,8 +78,14 @@ palettes:
 .byte $21, $06, $16, $26
 .byte $21, $09, $19, $29
 
+sprites:
+.byte $70, $04, %00000000, $70
+.byte $70, $04, %01000000, $78
+.byte $78, $04, %10000000, $70
+.byte $78, $04, %11000000, $78
+
 .segment "VECTORS"
 .addr nmi_handler, reset_handler, irq_handler
 
 .segment "CHR"
-.incbin "blank.chr"
+.incbin "sprites.chr"
