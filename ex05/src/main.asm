@@ -11,6 +11,7 @@ sprite_h: .res 1  ; sprite's horizontal movement direction
 paddle_x: .res 1
 paddle_y: .res 1
 controller1: .res 1
+temp_storage: .res 1
 
 .segment "BSS"
 
@@ -281,6 +282,9 @@ done_with_controller:
 .endproc
 
 .proc process_collisions
+  PHA
+  PHP
+
   LDA sprite_x
   CMP #$ec            ; is sprite_x greater than #$ec?
   BCC check_left_edge
@@ -294,10 +298,9 @@ check_left_edge:
   STA sprite_h
 horizontal_check_done: ; all done with x, now y
   LDA sprite_y
-  CMP #$d8            ; is sprite_y greater than #$d8?
+  CMP #$c8            ; is sprite_y greater than #$c8 (the paddle)?
   BCC check_top_edge
-  LDA #$00            ; yes
-  STA sprite_v
+  JSR check_paddle_collision  ; yes - see if we hit the paddle
   JMP vertical_check_done
 check_top_edge:
   CMP #$08            ; no. is it less than #$08?
@@ -305,6 +308,34 @@ check_top_edge:
   LDA #$01            ; yes
   STA sprite_v
 vertical_check_done:
+  PLP
+  PLA
+  RTS
+.endproc
+
+.proc check_paddle_collision
+  PHA
+  PHP
+
+  LDA sprite_x
+  CMP paddle_x  ; is sprite_x greater than paddle_x?
+  BCC no_collision
+  ; yes
+  CLC
+  ADC #$10
+  STA temp_storage
+  LDA paddle_x
+  CLC
+  ADC #$20
+  CMP temp_storage  ; is right end of paddle greater than right end of sprite?
+  BCC no_collision
+  ; yes - we have a collision!
+  LDA #$00
+  STA sprite_v
+no_collision:
+
+  PLP
+  PLA
   RTS
 .endproc
 
