@@ -231,17 +231,17 @@ write_paddle_x_values:
   ; write a 1, then a 0, to CONT_PORT_1
   ; to latch button states
   LDA #$01
+  STA controller1 ; move that '1' until done
+                  ; (ring counter)
   STA CONT_PORT_1
   LDA #$00
   STA CONT_PORT_1
 
-  LDX #$08
 get_buttons:
   LDA CONT_PORT_1   ; read from controller port
   LSR A             ; shift accumulator bit 0 into carry flag
   ROL controller1   ; move carry flag into controller1
-  DEX
-  BNE get_buttons
+  BCC get_buttons   ; repeat until original '1' is moved to carry
 
   PLP
   PLA
