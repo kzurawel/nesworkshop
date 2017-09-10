@@ -12,6 +12,7 @@ paddle_x: .res 1
 paddle_y: .res 1
 controller1: .res 1
 temp_storage: .res 1
+scroll_x: .res 1
 
 .segment "BSS"
 
@@ -47,6 +48,28 @@ vblankwait:     ; wait for PPU to fully boot up
   JSR update_paddle_position
   JSR draw_paddle
 
+  LDA scroll_x
+  STA PPUSCROLL
+  LDA #$00
+  STA PPUSCROLL
+
+  LDA controller1
+  AND #BTN_LEFT
+  BEQ not_left_pressed
+  LDA scroll_x
+  SEC
+  SBC #$01
+  STA scroll_x
+not_left_pressed:
+  LDA controller1
+  AND #BTN_RIGHT
+  BEQ not_right_pressed
+  LDA scroll_x
+  CLC
+  ADC #$01
+  STA scroll_x
+
+not_right_pressed:
   RTI
 .endproc
 
@@ -64,6 +87,9 @@ vblankwait:     ; wait for PPU to fully boot up
   LDA #$d8
   STA paddle_y
 
+  LDA #$00
+  STA scroll_x
+
   LDX PPUSTATUS   ; reset PPUADDR latch
   LDX #$3f
   STX PPUADDR
@@ -80,6 +106,48 @@ copy_palettes:
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
+
+  LDX PPUSTATUS
+  LDX #$21
+  STX PPUADDR
+  LDX #$c3
+  STX PPUADDR
+draw_strangeloop:
+  LDA strangeloop, x
+  STA PPUDATA
+  INX
+  CPX #$0c
+  BNE draw_strangeloop
+
+  LDX PPUSTATUS
+  LDX #$20
+  STX PPUADDR
+  LDX #$4b
+  STX PPUADDR
+  LDX #$00
+draw_goodluck:
+  LDA goodluck, x
+  STA PPUDATA
+  INX
+  CPX #$09
+  BNE draw_goodluck
+
+  LDA PPUSTATUS
+  LDA #$23
+  STA PPUADDR
+  LDA #$C0
+  STA PPUADDR
+  LDA #%01010101
+  LDX #$00
+write_attribute_table:
+  STA PPUDATA
+  INX
+  CPX #$40
+  BNE write_attribute_table
+
+vblankwait2:
+  BIT PPUSTATUS
+  BPL vblankwait2
 
   LDA #%10010000  ; turn on NMIs, sprites use first pattern table
   STA PPUCTRL
@@ -352,8 +420,20 @@ palettes:
 .byte $21, $06, $16, $26
 .byte $21, $09, $19, $29
 
+goodluck:
+.byte $0a, $12, $12, $07, $00, $0f, $18, $06, $0e
+
+havefun:
+.byte $0b, $04, $19, $08, $00, $09, $18, $11
+
+pong:
+.byte $13, $12, $11, $0a, $28
+
+strangeloop:
+.byte $16, $17, $15, $04, $11, $0a, $08, $0f, $12, $12, $13, $28
+
 .segment "VECTORS"
 .addr nmi_handler, reset_handler, irq_handler
 
 .segment "CHR"
-.incbin "sprites.chr"
+.incbin "font.chr"
