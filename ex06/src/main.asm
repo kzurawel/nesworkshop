@@ -13,6 +13,7 @@ paddle_y: .res 1
 controller1: .res 1
 temp_storage: .res 1
 scroll_x: .res 1
+scroll_table: .res 1
 
 .segment "BSS"
 
@@ -52,24 +53,25 @@ vblankwait:     ; wait for PPU to fully boot up
   STA PPUSCROLL
   LDA #$00
   STA PPUSCROLL
+  LDA scroll_table
+  STA PPUCTRL
 
-  LDA controller1
-  AND #BTN_LEFT
-  BEQ not_left_pressed
-  LDA scroll_x
-  SEC
-  SBC #$01
-  STA scroll_x
-not_left_pressed:
-  LDA controller1
-  AND #BTN_RIGHT
-  BEQ not_right_pressed
   LDA scroll_x
   CLC
   ADC #$01
   STA scroll_x
-
-not_right_pressed:
+  CMP #$00
+  BNE no_wrap
+  LDA scroll_table
+  CMP #%10010000
+  BEQ first_nametable
+  LDA #%10010000
+  STA scroll_table
+  JMP no_wrap
+first_nametable:
+  LDA #%10010001
+  STA scroll_table
+no_wrap:
   RTI
 .endproc
 
@@ -89,6 +91,8 @@ not_right_pressed:
 
   LDA #$00
   STA scroll_x
+  LDA #%10010000
+  STA scroll_table
 
   LDX PPUSTATUS   ; reset PPUADDR latch
   LDX #$3f
@@ -132,10 +136,24 @@ draw_goodluck:
   CPX #$09
   BNE draw_goodluck
 
+  LDX PPUSTATUS
+  LDX #$26
+  STX PPUADDR
+  LDX #$c4
+  STX PPUADDR
+  LDX #$00
+draw_havefun:
+  LDA havefun, x
+  STA PPUDATA
+  INX
+  CPX #$08
+  BNE draw_havefun
+
+; write attribute tables
   LDA PPUSTATUS
   LDA #$23
   STA PPUADDR
-  LDA #$C0
+  LDA #$c0
   STA PPUADDR
   LDA #%01010101
   LDX #$00
@@ -144,6 +162,19 @@ write_attribute_table:
   INX
   CPX #$40
   BNE write_attribute_table
+
+  LDA PPUSTATUS
+  LDA #$27
+  STA PPUADDR
+  LDA #$c0
+  STA PPUADDR
+  LDA #%01010101
+  LDX #$00
+write_page_2_attribute_table:
+  STA PPUDATA
+  INX
+  CPX #$40
+  BNE write_page_2_attribute_table
 
 vblankwait2:
   BIT PPUSTATUS
