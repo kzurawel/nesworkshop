@@ -111,6 +111,22 @@ vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
 
+  JSR draw_backgrounds  ; write to nametables and attribute tables
+
+vblankwait2:
+  BIT PPUSTATUS
+  BPL vblankwait2
+
+  LDA #%10010000  ; turn on NMIs, sprites use first pattern table
+  STA PPUCTRL
+  LDA #%00011110  ; turn on screen
+  STA PPUMASK
+
+forever:
+  JMP forever     ; do nothing, forever
+.endproc
+
+.proc draw_backgrounds
   LDX PPUSTATUS
   LDX #$21
   STX PPUADDR
@@ -149,7 +165,20 @@ draw_havefun:
   CPX #$08
   BNE draw_havefun
 
-; write attribute tables
+  LDX PPUSTATUS
+  LDX #$25
+  STX PPUADDR
+  LDX #$14
+  STX PPUADDR
+  LDX #$00
+draw_pong:
+  LDA pong, x
+  STA PPUDATA
+  INX
+  CPX #$04
+  BNE draw_pong
+
+; write both attribute tables
   LDA PPUSTATUS
   LDA #$23
   STA PPUADDR
@@ -175,18 +204,7 @@ write_page_2_attribute_table:
   INX
   CPX #$40
   BNE write_page_2_attribute_table
-
-vblankwait2:
-  BIT PPUSTATUS
-  BPL vblankwait2
-
-  LDA #%10010000  ; turn on NMIs, sprites use first pattern table
-  STA PPUCTRL
-  LDA #%00011110  ; turn on screen
-  STA PPUMASK
-
-forever:
-  JMP forever     ; do nothing, forever
+  RTS
 .endproc
 
 .proc draw_sprite
