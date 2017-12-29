@@ -1,7 +1,6 @@
 PPUCTRL     = $2000
 PPUMASK     = $2001
 PPUSTATUS   = $2002
-PPUSCROLL   = $2005
 PPUADDR     = $2006
 PPUDATA     = $2007
 
@@ -19,17 +18,3 @@ BTN_START   = %00010000
 BTN_SELECT  = %00100000
 BTN_B       = %01000000
 BTN_A       = %10000000
-
-SQ1_ENV     = $4000
-SQ1_SWP     = $4001
-SQ1_LO      = $4002
-SQ1_HI      = $4003
-
-SQ2_ENV     = $4004
-SQ2_SWP     = $4005
-SQ2_LO      = $4006
-SQ2_HI      = $4007
-
-TRI_ENV     = $4008
-TRI_LO      = $400a
-TRI_HI      = $400b
