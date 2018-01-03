@@ -1,5 +1,5 @@
-.include "constants.asm"
-.include "header.asm"
+.include "constants.inc"
+.include "header.inc"
 
 .segment "ZEROPAGE"
 .segment "BSS"

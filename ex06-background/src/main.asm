@@ -1,5 +1,5 @@
-.include "constants.asm"
-.include "header.asm"
+.include "constants.inc"
+.include "header.inc"
 
 .segment "ZEROPAGE"
 .exportzp sprite_x, sprite_y, sprite_v, sprite_h

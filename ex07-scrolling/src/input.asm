@@ -1,4 +1,4 @@
-.include "constants.asm"
+.include "constants.inc"
 
 .segment "ZEROPAGE"
 .importzp controller1
