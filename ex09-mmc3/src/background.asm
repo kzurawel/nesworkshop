@@ -39,7 +39,7 @@ draw_pong:
   LDA pong, x
   STA PPUDATA
   INX
-  CPX #$04
+  CPX #$05
   BNE draw_pong
 
 ; write both attribute tables
