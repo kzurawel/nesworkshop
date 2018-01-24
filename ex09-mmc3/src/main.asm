@@ -18,6 +18,7 @@ controller1: .res 1
 temp_storage: .res 1
 scroll_x: .res 1
 scroll_table: .res 1
+nmis:      .res 1
 
 .segment "BSS"
 
@@ -31,68 +32,136 @@ scroll_table: .res 1
 .import draw_backgrounds
 
 .proc irq_handler
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA ; save those registers!
+
+  LDA #$00  ; turn off screen
+  STA PPUMASK
+
+  LDX PPUSTATUS
+  LDA #$3f
+  STA PPUADDR
+  LDA #$00
+  STA PPUADDR
+  LDA #$16
+  STA PPUDATA ; set BG color to red
+  LDX PPUSTATUS
+  LDA #$3f
+  STA PPUADDR
+  LDA #$12
+  STA PPUADDR
+  LDA #$21
+  STA PPUDATA ; set sprite color 1 to blue
+
+  LDA scroll_x
+  STA PPUSCROLL
+  LDA #$66
+  STA PPUSCROLL
+  LDA scroll_table
+  STA PPUCTRL
+
+  LDA #%00011110  ; turn on screen
+  STA PPUMASK
+
+  LDA #$01
+  STA $e000  ; acknowledge IRQ
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA ; restore all registers
   RTI
 .endproc
 
 .proc reset_handler
-  SEI           ; turn on interrupts
+  SEI            ; disable interrupts
   CLD           ; turn off non-existent decimal mode
 
-	LDA #$40
-	STA $4017			; turn off APU frame IRQ
+  LDA #$40
+  STA $4017      ; turn off APU frame IRQ
 
-	LDX #$ff
-	TXS						; initialize the stack pointer
+
+  LDX #$ff
+  TXS            ; initialize the stack pointer
 
   LDX #$00
   STX PPUCTRL   ; disable NMI
   STX PPUMASK   ; turn off display
-	STX $4010			; turn off DMC IRQs
+  STX $4010      ; turn off DMC IRQs
 
-	BIT $2002			; acknowledge stray vblank
+  BIT $2002      ; acknowledge stray vblank
+  CLI            ; enable interrupts
 
 vblankwait:     ; wait for PPU to fully boot up
   BIT PPUSTATUS
   BPL vblankwait
 
 vblankwait2:
-	BIT PPUSTATUS
-	BPL vblankwait2
+  BIT PPUSTATUS
+  BPL vblankwait2
 
-	LDA #SOUND_REGION_NTSC
-	STA sound_param_byte_0
-	LDA #<song_list
-	STA sound_param_word_0
-	LDA #>song_list
-	STA sound_param_word_0+1
-	LDA #<sfx_list
-	STA sound_param_word_1
-	LDA #>sfx_list
-	STA sound_param_word_1+1
-	LDA #<envelopes_list
-	STA sound_param_word_2
-	LDA #>envelopes_list
-	STA sound_param_word_2+1
-	LDA #0
-	STA sound_param_word_3
-	STA sound_param_word_3+1
-	JSR sound_initialize
+  LDA #SOUND_REGION_NTSC
+  STA sound_param_byte_0
+  LDA #<song_list
+  STA sound_param_word_0
+  LDA #>song_list
+  STA sound_param_word_0+1
+  LDA #<sfx_list
+  STA sound_param_word_1
+  LDA #>sfx_list
+  STA sound_param_word_1+1
+  LDA #<envelopes_list
+  STA sound_param_word_2
+  LDA #>envelopes_list
+  STA sound_param_word_2+1
+  LDA #0
+  STA sound_param_word_3
+  STA sound_param_word_3+1
+  JSR sound_initialize
 
   JMP main
 .endproc
 
 .proc nmi_handler
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA ; save those registers!
+
+  ; set up IRQ scanline counter
+  LDA #$01
+  STA $e000 ; acknowledge existing interrupts
+  LDA #$99
+  STA $c000
+  STA $c001 ; $99 = 153 scanlines
+  LDA #$01
+  STA $e001 ; turn on the countdown
+
+  LDX PPUSTATUS
+  LDA #$3f
+  STA PPUADDR
+  LDA #$00
+  STA PPUADDR
+  LDA #$21
+  STA PPUDATA ; reset BG color to blue
+
+  LDX PPUSTATUS
+  LDA #$3f
+  STA PPUADDR
+  LDA #$12
+  STA PPUADDR
+  LDA #$16
+  STA PPUDATA ; reset sprite color 1 to red
+
   LDA #$00    ; draw SOMETHING first,
   STA OAMADDR ; in case we run out
   LDA #$02    ; of vblank time,
   STA OAMDMA  ; then update positions
-
-  JSR process_collisions
-  JSR update_sprite_position
-  JSR draw_sprite
-  JSR read_controller
-  JSR update_paddle_position
-  JSR draw_paddle
 
   LDA scroll_x
   STA PPUSCROLL
@@ -117,7 +186,14 @@ first_nametable:
   LDA #%10010001
   STA scroll_table
 no_wrap:
-	soundengine_update
+
+  INC nmis
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA ; restore all registers
   RTI
 .endproc
 
@@ -137,6 +213,7 @@ no_wrap:
 
   LDA #$00
   STA scroll_x
+  STA nmis
   LDA #%10010000
   STA scroll_table
 
@@ -157,22 +234,36 @@ vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
 
-	JSR draw_backgrounds
+  JSR draw_backgrounds
 
 vblankwait2:
-	BIT PPUSTATUS
-	BPL vblankwait2
+  BIT PPUSTATUS
+  BPL vblankwait2
 
   LDA #%10010000  ; turn on NMIs, sprites use first pattern table
   STA PPUCTRL
   LDA #%00011110  ; turn on screen
   STA PPUMASK
 
-	LDA #song_index_Main
-	STA sound_param_byte_0
-	JSR play_song
+  LDA #song_index_Main
+  STA sound_param_byte_0
+  JSR play_song
 
 forever:
+  JSR process_collisions
+  JSR update_sprite_position
+  JSR draw_sprite
+  JSR read_controller
+  JSR update_paddle_position
+  JSR draw_paddle
+
+  soundengine_update
+
+  LDA nmis
+wait_for_vblank:
+  CMP nmis
+  BEQ wait_for_vblank
+
   JMP forever     ; do nothing, forever
 .endproc
 
