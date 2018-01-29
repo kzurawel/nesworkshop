@@ -38,36 +38,35 @@ nmis:      .res 1
   TYA
   PHA ; save those registers!
 
+  LDA #$01
+  STA $e000  ; acknowledge IRQ
+
+  LDY #$3f
+
   LDA #$00  ; turn off screen
   STA PPUMASK
 
   LDX PPUSTATUS
-  LDA #$3f
-  STA PPUADDR
-  LDA #$00
-  STA PPUADDR
+  STY PPUADDR ; #$3f
+  STA PPUADDR	; #$00
   LDA #$16
   STA PPUDATA ; set BG color to red
-  LDX PPUSTATUS
-  LDA #$3f
-  STA PPUADDR
+  STY PPUADDR ; #$3f
   LDA #$12
   STA PPUADDR
   LDA #$21
   STA PPUDATA ; set sprite color 1 to blue
 
+  ; scrolling mid-frame is tricky
+  ; this does not behave how you'd expect
   LDA scroll_x
   STA PPUSCROLL
-  LDA #$66
   STA PPUSCROLL
   LDA scroll_table
   STA PPUCTRL
 
   LDA #%00011110  ; turn on screen
   STA PPUMASK
-
-  LDA #$01
-  STA $e000  ; acknowledge IRQ
 
   PLA
   TAY
